@@ -1,18 +1,18 @@
 # ldap_service.py
 from ldap3 import Server, Connection, ALL, SUBTREE, Tls
+from pathlib import Path
+from dotenv import load_dotenv
 import ssl
 import os
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 AD_SERVER = os.getenv("AD_SERVER")
 AD_DOMAIN = os.getenv("AD_DOMAIN", "santechsous.local")
 
 
 def autenticar_usuario(username: str, password: str):
-    """
-    Tenta autenticar o usuário no AD via bind LDAP sobre SSL (LDAPS).
-    Retorna dict com sucesso e grupos, ou None se falhar.
-    """
-    tls_config = Tls(validate=ssl.CERT_NONE)  # lab com certificado autoassinado
+    tls_config = Tls(validate=ssl.CERT_NONE)
     server = Server(AD_SERVER, port=636, use_ssl=True, tls=tls_config, get_info=ALL)
     user_dn = f"{username}@{AD_DOMAIN}"
 
@@ -48,9 +48,6 @@ def autenticar_usuario(username: str, password: str):
 
 
 def buscar_usuario(username: str):
-    """
-    Busca status e grupos de um usuário no AD, usando a conta de serviço (aiopsdesk).
-    """
     tls_config = Tls(validate=ssl.CERT_NONE)
     server = Server(AD_SERVER, port=636, use_ssl=True, tls=tls_config, get_info=ALL)
     service_dn = f"aiopsdesk@{AD_DOMAIN}"
@@ -77,7 +74,7 @@ def buscar_usuario(username: str):
     nome_completo = str(entry.displayName) if entry.displayName else username
     grupos = [str(g).split(",")[0].replace("CN=", "") for g in entry.memberOf] if entry.memberOf else []
     uac = int(str(entry.userAccountControl)) if entry.userAccountControl else 0
-    bloqueado = bool(uac & 2)  # bit 2 = conta desabilitada
+    bloqueado = bool(uac & 2)
 
     conn.unbind()
     return {"username": username, "nome_completo": nome_completo, "bloqueado": bloqueado, "grupos": grupos}
