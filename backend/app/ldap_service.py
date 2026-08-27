@@ -6,6 +6,7 @@ import os
 AD_SERVER = os.getenv("AD_SERVER")
 AD_DOMAIN = os.getenv("AD_DOMAIN", "santechsous.local")
 
+
 def autenticar_usuario(username: str, password: str):
     """
     Tenta autenticar o usuário no AD via bind LDAP sobre SSL (LDAPS).
@@ -22,7 +23,6 @@ def autenticar_usuario(username: str, password: str):
         print(f"ERRO LDAP DETALHADO: {conn.result}")
         return None
 
-    # Busca os grupos do usuário autenticado
     base_dn = ",".join([f"DC={p}" for p in AD_DOMAIN.split(".")])
     conn.search(
         search_base=base_dn,
@@ -38,6 +38,7 @@ def autenticar_usuario(username: str, password: str):
         grupos = entrada.memberOf.values if "memberOf" in entrada else []
         nome_completo = str(entrada.displayName) if "displayName" in entrada else username
 
+    conn.unbind()
     return {
         "sucesso": True,
         "username": username,
@@ -45,42 +46,38 @@ def autenticar_usuario(username: str, password: str):
         "grupos": grupos
     }
 
-def consultar_usuario(samaccountname: str):
+
+def buscar_usuario(username: str):
     """
-    Consulta informações de um usuário no AD (sem autenticar como ele).
-    Usa a mesma conexão LDAPS, mas faz bind com uma conta de serviço/admin.
-    Retorna dict com dados do usuário, ou None se não encontrado.
+    Busca status e grupos de um usuário no AD, usando a conta de serviço (aiopsdesk).
     """
     tls_config = Tls(validate=ssl.CERT_NONE)
     server = Server(AD_SERVER, port=636, use_ssl=True, tls=tls_config, get_info=ALL)
+    service_dn = f"aiopsdesk@{AD_DOMAIN}"
+    service_password = os.getenv("AD_SERVICE_PASSWORD")
 
-    admin_user = os.getenv("AD_BIND_USER")
-    admin_password = os.getenv("AD_BIND_PASSWORD")
-
-    conn = Connection(server, user=admin_user, password=admin_password)
+    conn = Connection(server, user=service_dn, password=service_password)
     if not conn.bind():
-        print(f"ERRO LDAP (consulta): {conn.result}")
-        return None
+        print(f"ERRO LDAP (buscar_usuario): {conn.result}")
+        return {"erro": "Falha ao conectar no AD com a conta de serviço"}
 
     base_dn = ",".join([f"DC={p}" for p in AD_DOMAIN.split(".")])
     conn.search(
         search_base=base_dn,
-        search_filter=f"(sAMAccountName={samaccountname})",
+        search_filter=f"(sAMAccountName={username})",
         search_scope=SUBTREE,
-        attributes=["displayName", "lockoutTime", "lastLogon", "memberOf", "userAccountControl"]
+        attributes=["memberOf", "displayName", "userAccountControl"]
     )
 
     if not conn.entries:
-        return None
+        conn.unbind()
+        return {"erro": "Usuário não encontrado"}
 
-    entrada = conn.entries[0]
-    bloqueado = False
-    if "lockoutTime" in entrada and str(entrada.lockoutTime) not in ("0", ""):
-        bloqueado = True
+    entry = conn.entries[0]
+    nome_completo = str(entry.displayName) if entry.displayName else username
+    grupos = [str(g).split(",")[0].replace("CN=", "") for g in entry.memberOf] if entry.memberOf else []
+    uac = int(str(entry.userAccountControl)) if entry.userAccountControl else 0
+    bloqueado = bool(uac & 2)  # bit 2 = conta desabilitada
 
-    return {
-        "username": samaccountname,
-        "nome_completo": str(entrada.displayName) if "displayName" in entrada else samaccountname,
-        "bloqueado": bloqueado,
-        "grupos": entrada.memberOf.values if "memberOf" in entrada else []
-    }
+    conn.unbind()
+    return {"username": username, "nome_completo": nome_completo, "bloqueado": bloqueado, "grupos": grupos}

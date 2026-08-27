@@ -1,6 +1,7 @@
 # main.py
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import SessionLocal, Base, engine
@@ -8,6 +9,14 @@ import models, ai_service, zabbix_service, ldap_service, auth_service
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI(title="AIOps Desk")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 security = HTTPBearer()
 
@@ -76,9 +85,6 @@ def diagnosticar_problema(eventid: str, db: Session = Depends(get_db), usuario: 
     return chamado
 
 
-@app.get("/ad/usuario/{samaccountname}")
-def usuario_ad(samaccountname: str, usuario: dict = Depends(verificar_token)):
-    resultado = ldap_service.consultar_usuario(samaccountname)
-    if not resultado:
-        return {"erro": "usuário não encontrado"}
-    return resultado
+@app.get("/ad/usuario/{username}")
+def consultar_usuario_ad(username: str, usuario: dict = Depends(verificar_token)):
+    return ldap_service.buscar_usuario(username)
