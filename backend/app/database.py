@@ -5,3 +5,10 @@ DATABASE_URL = "postgresql://aiops:aiops@localhost:5432/aiops_desk"
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

@@ -28,7 +28,7 @@ export default function AdUsuario() {
 
   return (
     <div style={{ maxWidth: 620 }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>Consulta de usuário — Active Directory</h1>
+      <h1 style={{ fontSize: 22, marginBottom: 4 }}>Consulta de usuário - Active Directory</h1>
       <p style={{ color: "var(--text-dim)", fontSize: 14, marginBottom: 24 }}>
         Busque status e grupos de um usuário do domínio.
       </p>

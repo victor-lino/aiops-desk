@@ -1,8 +1,8 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import logo from "../assets/logotipo-novo.png";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const nome = localStorage.getItem("nome") || "usuário";
 
   function sair() {
     localStorage.removeItem("token");
@@ -39,14 +39,27 @@ export default function Dashboard() {
         </div>
 
         <nav style={{ flex: 1 }}>
+          <NavLink to="/dashboard/visao-geral" style={linkStyle}>Visão Geral</NavLink>
           <NavLink to="/dashboard/diagnostico" style={linkStyle}>Diagnóstico</NavLink>
-          <NavLink to="/dashboard/chamados" style={linkStyle}>Histórico</NavLink>
+          <NavLink to="/dashboard/historico" style={linkStyle}>Histórico</NavLink>
+          <NavLink to="/dashboard/tickets" style={linkStyle}>Tickets</NavLink>
+          <NavLink to="/abrir-ticket" style={linkStyle}>Abrir ticket</NavLink>
           <NavLink to="/dashboard/zabbix" style={linkStyle}>Alertas Zabbix</NavLink>
           <NavLink to="/dashboard/ad" style={linkStyle}>Consulta AD</NavLink>
         </nav>
 
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-          <p style={{ fontSize: 13, color: "var(--text-dim)", margin: "0 0 8px" }}>{nome}</p>
+        <div style={{
+          borderTop: "1px solid var(--border)",
+          paddingTop: 16,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}>
+          <img
+            src={logo}
+            alt="Santechso.us"
+            style={{ width: 100, height: "auto", marginBottom: 12, display: "block" }}
+          />
           <button onClick={sair} className="mono" style={{
             background: "none",
             border: "1px solid var(--border)",

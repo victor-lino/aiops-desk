@@ -2,9 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Diagnostico from "./pages/Diagnostico";
-import Chamados from "./pages/Chamados";
+import Historico from "./pages/Historico";
+import Tickets from "./pages/Tickets";
+import NovoTicket from "./pages/NovoTicket";
 import Zabbix from "./pages/Zabbix";
 import AdUsuario from "./pages/AdUsuario";
+import VisaoGeral from "./pages/VisaoGeral";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token");
@@ -16,6 +19,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/abrir-ticket" element={<NovoTicket />} />
         <Route
           path="/dashboard"
           element={
@@ -24,9 +28,11 @@ export default function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<Navigate to="diagnostico" />} />
+          <Route index element={<Navigate to="visao-geral" />} />
+          <Route path="visao-geral" element={<VisaoGeral />} />
           <Route path="diagnostico" element={<Diagnostico />} />
-          <Route path="chamados" element={<Chamados />} />
+          <Route path="historico" element={<Historico />} />
+          <Route path="tickets" element={<Tickets />} />
           <Route path="zabbix" element={<Zabbix />} />
           <Route path="ad" element={<AdUsuario />} />
         </Route>

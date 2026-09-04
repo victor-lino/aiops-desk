@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api";
 
 export default function Login() {
@@ -17,6 +17,7 @@ export default function Login() {
       const resp = await api.post("/login", { username, password });
       localStorage.setItem("token", resp.data.access_token);
       localStorage.setItem("nome", resp.data.nome);
+      localStorage.setItem("username", resp.data.username);
       navigate("/dashboard");
     } catch {
       setErro("Usuário ou senha inválidos.");
@@ -70,6 +71,13 @@ export default function Login() {
         <button className="btn" type="submit" style={{ width: "100%" }} disabled={carregando}>
           {carregando ? "Autenticando..." : "Entrar"}
         </button>
+
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--text-dim)", marginTop: 16, marginBottom: 0 }}>
+          Não é analista?{" "}
+          <Link to="/abrir-ticket" style={{ color: "var(--accent)" }}>
+            Abrir chamado aqui
+          </Link>
+        </p>
       </form>
     </div>
   );
