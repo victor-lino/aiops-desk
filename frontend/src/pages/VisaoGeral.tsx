@@ -33,6 +33,15 @@ function minutosAberto(t: Ticket): number {
   return (Date.now() - new Date(t.criado_em).getTime()) / 60000;
 }
 
+function titulo(t: Ticket): string {
+  if (t.sistema_afetado) return t.sistema_afetado;
+  if (t.categoria) return t.categoria;
+  if (t.descricao) {
+    return t.descricao.length > 60 ? t.descricao.slice(0, 60) + "..." : t.descricao;
+  }
+  return "—";
+}
+
 function StatCard({ label, valor, cor }: { label: string; valor: number; cor?: string }) {
   return (
     <div className="card" style={{ flex: 1, minWidth: 160 }}>
@@ -136,7 +145,7 @@ export default function VisaoGeral() {
                           ⚠
                         </span>
                       )}
-                      <span style={{ fontSize: 14 }}>{t.sistema_afetado || t.categoria || "—"}</span>
+                      <span style={{ fontSize: 14 }}>{titulo(t)}</span>
                     </div>
                     <span className="mono" style={{ fontSize: 12, color: "var(--text-dim)" }}>
                       {new Date(t.criado_em).toLocaleString("pt-BR")}

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 from google import genai
 from google.genai.errors import ClientError, ServerError
@@ -12,8 +13,51 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 MAX_TENTATIVAS = 3
 ESPERA_BASE_SEGUNDOS = 2
 
+# --- circuit breaker de cota do Gemini -------------------------------------
+_gemini_bloqueado_ate = 0.0
+COOLDOWN_PADRAO_SEGUNDOS = 60  # usado se não conseguirmos extrair o retryDelay do erro
+MARGEM_EXTRA_SEGUNDOS = 5
+
+
+class GeminiIndisponivelError(Exception):
+    """Levantado quando o Gemini está em cooldown por cota estourada (sem nem tentar a API)."""
+    pass
+
+
+def _gemini_disponivel() -> bool:
+    return time.time() >= _gemini_bloqueado_ate
+
+
+def _eh_erro_de_cota(erro: Exception) -> bool:
+    texto = str(erro)
+    return "RESOURCE_EXHAUSTED" in texto or "429" in texto
+
+
+def _registrar_cooldown(mensagem_erro: str):
+    global _gemini_bloqueado_ate
+
+    match = re.search(r"retryDelay['\"]?:\s*['\"](\d+)s", mensagem_erro)
+    delay = int(match.group(1)) if match else COOLDOWN_PADRAO_SEGUNDOS
+
+    _gemini_bloqueado_ate = time.time() + delay + MARGEM_EXTRA_SEGUNDOS
+    logger.warning(
+        "Gemini em cooldown por %ds (cota estourada). Chamadas serão puladas até lá.",
+        delay + MARGEM_EXTRA_SEGUNDOS
+    )
+
+
+# -----------------------------------------------------------------------------
+
 
 def _chamar_gemini_com_retry(prompt: str, contexto_log: str = ""):
+    if not _gemini_disponivel():
+        restante = max(int(_gemini_bloqueado_ate - time.time()), 0)
+        logger.info(
+            "%s: Gemini em cooldown por mais %ds (cota estourada), pulando chamada.",
+            contexto_log, restante
+        )
+        raise GeminiIndisponivelError("Gemini em cooldown por cota estourada")
+
     ultima_excecao = None
 
     for tentativa in range(1, MAX_TENTATIVAS + 1):
@@ -36,7 +80,9 @@ def _chamar_gemini_com_retry(prompt: str, contexto_log: str = ""):
                     "%s: todas as %d tentativas falharam com ServerError. Último erro: %s",
                     contexto_log, MAX_TENTATIVAS, e
                 )
-        except ClientError:
+        except ClientError as e:
+            if _eh_erro_de_cota(e):
+                _registrar_cooldown(str(e))
             raise
 
     raise ultima_excecao
@@ -54,7 +100,18 @@ def diagnosticar(descricao: str, contexto: str = "") -> dict:
         f"Contexto adicional: {contexto}"
     )
 
-    resp = _chamar_gemini_com_retry(prompt, contexto_log="diagnosticar()")
+    try:
+        resp = _chamar_gemini_com_retry(prompt, contexto_log="diagnosticar()")
+    except (ClientError, ServerError, GeminiIndisponivelError) as e:
+        logger.warning("diagnosticar(): falha ao chamar a API do Gemini: %s", e)
+        return {
+            "causa_provavel": None,
+            "impacto": None,
+            "sugestao_resolucao": None,
+            "ia_disponivel": False,
+            "resposta_valida": False,
+            "erro_ia": str(e),
+        }
 
     texto = resp.text.strip()
     texto = texto.replace("```json", "").replace("```", "").strip()
@@ -72,6 +129,7 @@ def diagnosticar(descricao: str, contexto: str = "") -> dict:
             "sugestao_resolucao": "",
         }
 
+    dados["ia_disponivel"] = True
     return dados
 
 
@@ -120,8 +178,8 @@ def sugerir_resolucao(descricao: str, categoria: str = "", sistema_afetado: str 
 
     try:
         resp = _chamar_gemini_com_retry(prompt, contexto_log="sugerir_resolucao()")
-    except (ClientError, ServerError) as e:
-        logger.warning("sugerir_resolucao(): falha definitiva ao chamar a API do Gemini: %s", e)
+    except (ClientError, ServerError, GeminiIndisponivelError) as e:
+        logger.warning("sugerir_resolucao(): falha ao chamar a API do Gemini: %s", e)
         return {
             "causa_provavel": None,
             "impacto": None,
