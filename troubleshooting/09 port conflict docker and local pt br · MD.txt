@@ -1,0 +1,25 @@
+# Bug: Conflito de portas rodando Docker Compose e dev local ao mesmo tempo
+
+## Sintoma
+Backend e frontend se comportavam de forma inconsistente — às vezes
+atendendo pela versão errada do código, e o frontend caía pra porta
+`5174` em vez da `5173` de costume.
+
+## Causa raiz
+O ambiente tinha tanto o `docker compose` (rodando
+`aiops-desk-backend-1`, `aiops-desk-frontend-1`, `aiops-desk-db-1`) quanto
+os processos locais de `uvicorn` / `npm run dev` rodando ao mesmo tempo,
+disputando as portas `8000` (backend) e `5173` (frontend).
+
+## Correção
+Identifiquei o conflito e padronizei rodar apenas um modo por vez durante o
+desenvolvimento ativo — `uvicorn` + `npm run dev` local pra iteração
+rápida, Docker Compose pra teste de integração — em vez dos dois ao mesmo
+tempo.
+
+## Lição
+Serviços do Docker Compose e seus equivalentes locais vão brigar
+silenciosamente pelas mesmas portas se os dois forem iniciados; o hábito de
+"deixar rodando em segundo plano" de uma sessão anterior é uma forma fácil
+de perder tempo debugando algo que nem é um bug de código.
+

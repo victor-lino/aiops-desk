@@ -1,0 +1,27 @@
+# Bug: `host.get` do Zabbix retornando lista vazia
+
+## Sintoma
+`host.get`, chamado através do usuário `aiops-api` do Zabbix, retornava uma
+lista vazia — como se nenhum host estivesse cadastrado.
+
+## Causa raiz
+O laboratório na verdade tinha 8 hosts cadastrados (`DC01`, `DC02`,
+`DC03-Physical`, `NODE01`, `NODE02`, `pfSense`, `TrueNAS-Storage`,
+`Zabbix-server`), vários com problemas ativos. O resultado vazio não tinha
+nada a ver com hosts ausentes — o usuário `aiops-api` simplesmente não
+tinha permissão de leitura sobre os grupos de hosts aos quais eles
+pertenciam.
+
+## Correção
+Concedi permissão de leitura ao usuário `aiops-api` sobre os grupos de
+hosts relevantes através do grupo de usuários **Admin TI** no Zabbix.
+Rodei `host.get` novamente e confirmei que os 8 hosts eram retornados
+corretamente.
+
+## Lição
+Um resultado vazio de uma API não é prova de que os dados por trás estão
+vazios — pode muito bem ser a permissão de quem chama que é a lacuna real.
+Vale checar as permissões antes de assumir que os próprios dados é que
+estão faltando, principalmente numa conta de serviço recém-criada.
+
+

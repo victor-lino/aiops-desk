@@ -1,0 +1,33 @@
+# Bug: Variáveis de ambiente não carregando + uma classe de modelo sumiu
+
+## Sintoma
+Depois de adicionar o sistema de tickets (`tickets.py` pro CRUD/prioridade
+via IA/resolução por token, e `webhooks.py` pra receber alertas do Zabbix),
+o servidor parou de subir limpo. Separadamente, código que referenciava o
+modelo `Chamado` começou a dar erro, como se a classe não existisse mais.
+
+## Causa raiz
+Dois problemas independentes se somaram:
+1. O `main.py` estava sem `load_dotenv()`, então as variáveis de ambiente
+   do `.env` (incluindo a string de conexão do banco) não estavam sendo
+   carregadas.
+2. A classe `Chamado` tinha sumido do `models.py` — provavelmente de uma
+   edição anterior que sobrescreveu o arquivo em vez de estendê-lo.
+
+## Correção
+- Adicionei `load_dotenv()` ao `main.py`.
+- Reconstruí a classe `Chamado` no `models.py`, junto com `Ticket`.
+- Também corrigi uma lacuna relacionada: `email-validator`, exigido por um
+  campo de e-mail do Pydantic, não estava instalado.
+- Depois dessas três correções, o servidor subiu limpo, com todos os
+  routers (`diagnostico`, `chamados`, `zabbix`, `tickets`, `webhooks`)
+  visíveis e funcionando no Swagger.
+
+## Lição
+Quando vários erros aparentemente independentes aparecem de uma vez depois
+de um lote de mudanças, vale checar cada arquivo alterado contra o que ele
+deveria conter, em vez de assumir uma causa única — nesse caso foi preciso
+corrigir três coisas sem relação direta (carregamento de env, classe de
+modelo sumida, dependência faltando) antes do servidor sequer subir.
+
+

@@ -1,0 +1,30 @@
+# Bug: 401 / Unprocessable Entity nos endpoints de tickets no Swagger
+
+## Sintoma
+Chamar os endpoints de tickets pelo Swagger UI retornava de forma
+intermitente `401 Unauthorized` ou `422 Unprocessable Entity`, mesmo com um
+token aparentemente válido.
+
+## Causa raiz
+O `auth_service.py` tinha dois esquemas de autenticação diferentes
+declarados no código: `HTTPBearer` no `main.py` e `OAuth2PasswordBearer` no
+`tickets.py`. O Swagger UI e a injeção de dependências do FastAPI tratam os
+dois esquemas de formas diferentes, então dependendo de qual router
+atendia a requisição, o token era validado (ou esperado) de um jeito
+diferente.
+
+## Correção
+Unifiquei a autenticação num único esquema `HTTPBearer` dentro do
+`auth_service.py`. `obter_usuario_atual()` agora sempre recebe um objeto
+`HTTPAuthorizationCredentials`, independente de qual router chama a função.
+Testei novamente `GET /tickets` e confirmei que retornava corretamente o
+ticket criado antes pelo webhook do Zabbix, incluindo os campos
+`sugestao_ia` e `prioridade_ia` gerados pela IA.
+
+## Lição
+Misturar dois esquemas de dependência de autenticação entre routers na
+mesma aplicação FastAPI é uma forma fácil de gerar um comportamento
+inconsistente que parece problema de token, mas na verdade é problema de
+ligação entre as partes. Melhor escolher um esquema só e usá-lo em todo
+`Depends()` que precisa do usuário atual.
+

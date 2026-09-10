@@ -1,0 +1,28 @@
+# Bug: Links de resolução no e-mail de ticket davam timeout
+
+## Sintoma
+O e-mail de sugestão de ticket (enviado via SMTP do Gmail) incluía links de
+ação (`resolvido` / `nao_resolvido`) construídos a partir da `BASE_URL`.
+Clicar neles dava timeout em vez de carregar a página de resolução.
+
+## Causa raiz
+`BASE_URL` estava configurada com o endereço interno do servidor Zabbix
+(`192.168.244.128`), que só é alcançável de dentro da rede interna do
+laboratório — não de onde o link do e-mail estava sendo aberto de fato.
+
+## Correção
+Troquei temporariamente `BASE_URL` para `http://127.0.0.1:8000` para o
+desenvolvimento local, já que o backend ainda rodava só localmente nesse
+estágio. Documentado que a correção definitiva é hospedar o backend no
+mesmo segmento de rede do Zabbix (`192.168.244.128`) quando o projeto for
+pra produção, pra que `BASE_URL` no `.env` aponte pra lá e os links de
+e-mail funcionem corretamente a partir de qualquer cliente que alcance
+aquela rede.
+
+## Lição
+Um valor como `BASE_URL`, que é embutido em conteúdo enviado pra fora
+(e-mails, webhooks, links compartilháveis), precisa ser alcançável a partir
+da rede de quem recebe, não só do servidor que o gera — vale tratá-lo
+separado de URLs puramente internas de serviço-pra-serviço.
+
+

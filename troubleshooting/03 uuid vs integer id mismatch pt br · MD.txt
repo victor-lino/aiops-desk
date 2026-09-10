@@ -1,0 +1,25 @@
+# Bug: Erro de tipo ao inserir na tabela `chamados` (id integer vs UUID)
+
+## Sintoma
+`POST /diagnostico` falhava com um erro de tipo do banco de dados ao tentar
+inserir uma nova linha na tabela `chamados`.
+
+## Causa raiz
+A tabela `chamados` no Postgres ainda tinha a coluna `id` como `integer`,
+resquício de uma versão antiga do schema. O modelo SQLAlchemy atual gera um
+UUID para `id`, então todo insert falhava no nível de tipo.
+
+## Correção
+Dropei a tabela desatualizada diretamente no container do Postgres (via
+`docker exec` no `aiops-desk-db-1`) e deixei o `Base.metadata.create_all()`
+recriá-la a partir da definição atual do modelo, agora com `id` como UUID.
+Testei novamente `POST /diagnostico` e confirmei `200 OK`.
+
+## Lição
+`Base.metadata.create_all()` só cria tabelas que ainda não existem — nunca
+migra colunas de uma tabela já existente. Qualquer mudança de schema em um
+modelo existente precisa de uma ferramenta real de migração (Alembic) ou,
+em um banco de dev local com dados descartáveis, um drop-and-recreate
+manual.
+
+

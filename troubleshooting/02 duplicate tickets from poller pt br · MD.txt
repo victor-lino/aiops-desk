@@ -1,0 +1,27 @@
+# Bug: Poller podia criar tickets duplicados para o mesmo problema do Zabbix
+
+## Sintoma
+O `poller.py` consulta o Zabbix a cada 60 segundos (via `asyncio.create_task`
+no startup do FastAPI) procurando problemas novos e abrindo um ticket pra
+cada um. Sem uma forma de reconhecer "esse problema eu já tratei", o mesmo
+problema do Zabbix podia gerar mais de um ticket em ciclos de consulta
+diferentes.
+
+## Causa raiz
+Não havia nenhum vínculo entre um problema do Zabbix e o ticket gerado por
+ele, então cada ciclo de polling não tinha como diferenciar um problema
+realmente novo de um que já havia sido tratado.
+
+## Correção
+Adicionei o campo `zabbix_eventid` ao modelo `Ticket`. Antes de criar um
+ticket para um problema retornado pelo Zabbix, o poller verifica se já
+existe um ticket com aquele `zabbix_eventid`; se existir, ele pula. Testado
+rodando o poller em vários ciclos contra o mesmo problema ativo e
+confirmando que apenas um ticket foi criado.
+
+## Lição
+Qualquer job recorrente que transforma eventos externos em registros
+internos precisa de uma chave de idempotência desde o início — os
+intervalos de polling sempre vão se sobrepor ao tempo de vida de algum
+evento em algum momento.
+

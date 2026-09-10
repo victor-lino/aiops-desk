@@ -1,0 +1,28 @@
+# Bug: Login LDAP falhando com `strongerAuthRequired`
+
+## Sintoma
+O endpoint `/login`, autenticando contra o Active Directory via LDAP,
+falhava com um erro `strongerAuthRequired` antes mesmo de chegar a validar
+as credenciais.
+
+## Causa raiz
+O controlador de domínio (Windows Server Core, sem GUI) exigia assinatura
+LDAP, e a configuração local do registro (`LDAPServerIntegrity`) era
+sobrescrita de volta pela Group Policy do domínio a cada ciclo automático
+de atualização — então um ajuste local nunca se mantinha.
+
+## Correção
+Configurei `LDAPServerIntegrity = 1` diretamente na GPO **Default Domain
+Controllers Policy**, em vez do registro local, pra que a configuração
+sobreviva aos ciclos de atualização de GPO. Depois disso, as tentativas de
+login LDAP passaram da checagem de assinatura e começaram a retornar
+`invalidCredentials` — confirmando que a camada de rede/protocolo já
+estava correta e o que faltava era só a senha certa da conta de teste.
+
+## Lição
+Numa máquina ligada ao domínio, um ajuste local no registro que conflita
+com uma GPO é uma batalha perdida — a atualização de GPO acaba vencendo.
+Qualquer configuração relacionada ao AD precisa ser checada (e, se
+necessário, alterada) no nível da política, não só localmente.
+
+
