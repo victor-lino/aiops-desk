@@ -1,0 +1,26 @@
+# Bug: Horários errados nos tickets (naive vs. aware datetimes)
+
+## Sintoma
+Tickets eram criados e atualizados com timestamps que não batiam com o
+horário real — `criado_em` / `atualizado_em` estavam sistematicamente
+deslocados.
+
+## Causa raiz
+O `models.py` tinha voltado a usar `datetime.utcnow()` nos campos de
+timestamp de `Ticket` e `Chamado` — provavelmente de uma edição anterior
+que não foi salva, ou que acabou sendo sobrescrita depois. `datetime.utcnow()`
+retorna um datetime "naive" em UTC, que era exibido como se já fosse
+horário local, gerando o deslocamento.
+
+## Correção
+Troquei `datetime.utcnow()` por `datetime.now()` em:
+- `Ticket.criado_em`
+- `Ticket.atualizado_em`
+- `Chamado.criado_em`
+
+## Lição
+Datetimes naive são uma armadilha silenciosa: o código roda sem erro, o
+valor parece um timestamp válido, e o bug só aparece quando uma pessoa
+compara com o relógio na parede. Vale sempre conferir a escolha entre
+`datetime.utcnow` e `datetime.now` contra como o valor vai ser exibido
+depois, principalmente após refatorações que mexem em campos de modelo.
